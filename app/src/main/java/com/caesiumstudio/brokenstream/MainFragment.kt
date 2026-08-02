@@ -1,0 +1,362 @@
+package com.caesiumstudio.pinstream
+
+import android.app.AlertDialog
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.os.Bundle
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.caesiumstudio.pinstream.data.SiteEntry
+import com.caesiumstudio.pinstream.data.SiteRepository
+import com.caesiumstudio.pinstream.ui.home.AddSiteDialogFragment
+import com.caesiumstudio.pinstream.ui.home.SiteCardPresenter
+import com.caesiumstudio.pinstream.webview.WebViewActivity
+import java.util.concurrent.Executors
+
+class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
+
+    private lateinit var repo: SiteRepository
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var settingsScroll: ScrollView
+    private lateinit var navHome: TextView
+    private lateinit var navSettings: TextView
+    private lateinit var navExit: TextView
+    private lateinit var sitesAdapter: SitesAdapter
+
+    private lateinit var tvCursorSpeed: TextView
+    private lateinit var tvScrollSpeed: TextView
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View = inflater.inflate(R.layout.fragment_main, container, false)
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        repo = SiteRepository(requireContext())
+
+        recyclerView = view.findViewById(R.id.sites_grid)
+        settingsScroll = view.findViewById(R.id.settings_scroll)
+        navHome = view.findViewById(R.id.nav_home)
+        navSettings = view.findViewById(R.id.nav_settings)
+        navExit = view.findViewById(R.id.nav_exit)
+        tvCursorSpeed = view.findViewById(R.id.setting_cursor_speed)
+        tvScrollSpeed = view.findViewById(R.id.setting_scroll_speed)
+
+        setupNav()
+        setupGrid()
+        setupSettings()
+        showHome()
+        syncRemoteSites()
+    }
+
+    // --- Remote config sync ---
+
+    private fun syncRemoteSites() {
+        Executors.newSingleThreadExecutor().execute {
+            // Step 1: fetch JSON and show all sites immediately
+            val remoteSites = repo.fetchRemote(REMOTE_CONFIG_URL) ?: return@execute
+            view?.post {
+                if (isAdded) sitesAdapter.submitList(remoteSites)
+            }
+
+            // Step 2: check availability and remove dead sites silently
+            val available = repo.filterAvailable(remoteSites)
+            if (available.size != remoteSites.size) {
+                view?.post {
+                    if (isAdded) sitesAdapter.submitList(available)
+                }
+            }
+        }
+    }
+
+    // --- Navigation ---
+
+    private fun setupNav() {
+        navHome.setOnClickListener { showHome() }
+        navSettings.setOnClickListener { showSettings() }
+        navExit.setOnClickListener { requireActivity().finishAffinity() }
+    }
+
+    private fun showHome() {
+        recyclerView.visibility = View.VISIBLE
+        settingsScroll.visibility = View.GONE
+        setActiveTab(navHome)
+        recyclerView.requestFocus()
+    }
+
+    private fun showSettings() {
+        recyclerView.visibility = View.GONE
+        settingsScroll.visibility = View.VISIBLE
+        setActiveTab(navSettings)
+        refreshSettingsLabels()
+        tvCursorSpeed.requestFocus()
+    }
+
+    private fun setActiveTab(active: TextView) {
+        navHome.isSelected = (active == navHome)
+        navSettings.isSelected = (active == navSettings)
+        navExit.isSelected = false
+    }
+
+    // --- Home grid ---
+
+    private fun setupGrid() {
+        val dm = resources.displayMetrics
+        val spacingPx = (16 * dm.density).toInt()
+        val minWidthPx = (160 * dm.density).toInt()
+        val cols = (dm.widthPixels / (minWidthPx + spacingPx)).coerceAtLeast(1)
+
+        sitesAdapter = SitesAdapter(
+            onSiteClick = { site ->
+                startActivity(
+                    Intent(requireContext(), WebViewActivity::class.java)
+                        .putExtra(WebViewActivity.EXTRA_URL, site.url)
+                )
+            },
+            onAddClick = {
+                AddSiteDialogFragment.newInstance()
+                    .also { it.setListener(this) }
+                    .show(requireActivity().supportFragmentManager, "add_site")
+            },
+            onEditSite = { site ->
+                AddSiteDialogFragment.newInstance(site)
+                    .also { it.setListener(this) }
+                    .show(requireActivity().supportFragmentManager, "edit_site")
+            },
+            onDeleteSite = { site ->
+                repo.deleteSite(site.id)
+                refreshSites()
+            },
+            onToggleFavorite = { site ->
+                repo.toggleFavorite(site.id)
+                refreshSites()
+            }
+        )
+
+        recyclerView.layoutManager = GridLayoutManager(requireContext(), cols)
+        recyclerView.adapter = sitesAdapter
+        refreshSites()
+    }
+
+    private fun refreshSites() {
+        sitesAdapter.submitList(repo.loadSites().sortedByDescending { it.isFavorite })
+    }
+
+    override fun onSiteConfirmed(url: String, existingId: Long?) {
+        if (existingId != null) {
+            val existing = repo.loadSites().firstOrNull { it.id == existingId } ?: return
+            val normalized =
+                if (url.startsWith("http://") || url.startsWith("https://")) url else "https://$url"
+            val host = try {
+                val h = android.net.Uri.parse(normalized).host?.removePrefix("www.") ?: url
+                h.substringBefore(".").replaceFirstChar { it.uppercaseChar() }
+            } catch (_: Exception) {
+                url
+            }
+            repo.updateSite(existing.copy(url = normalized, displayName = host))
+        } else {
+            repo.addSite(url)
+        }
+        refreshSites()
+    }
+
+    // --- Settings panel ---
+
+    private fun setupSettings() {
+        tvCursorSpeed.setOnClickListener {
+            showSpeedPicker(
+                "Pointer Speed",
+                KEY_CURSOR_SPEED,
+                tvCursorSpeed
+            )
+        }
+        tvScrollSpeed.setOnClickListener {
+            showSpeedPicker(
+                "Scroll Speed",
+                KEY_SCROLL_SPEED,
+                tvScrollSpeed
+            )
+        }
+    }
+
+    private fun refreshSettingsLabels() {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        tvCursorSpeed.text = "Pointer Speed: ${labelFor(prefs.getFloat(KEY_CURSOR_SPEED, 1.0f))}"
+        tvScrollSpeed.text = "Scroll Speed: ${labelFor(prefs.getFloat(KEY_SCROLL_SPEED, 1.0f))}"
+    }
+
+    private fun showSpeedPicker(title: String, prefKey: String, label: TextView) {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = prefs.getFloat(prefKey, 1.0f)
+        val currentIdx = SPEED_VALUES.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 1
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(title)
+            .setSingleChoiceItems(SPEED_LABELS, currentIdx) { dialog, idx ->
+                prefs.edit().putFloat(prefKey, SPEED_VALUES[idx]).apply()
+                label.text = "$title: ${SPEED_LABELS[idx]}"
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun labelFor(value: Float): String =
+        SPEED_LABELS.getOrElse(SPEED_VALUES.indexOfFirst { it == value }.takeIf { it >= 0 }
+            ?: 1) { "Normal (1×)" }
+
+    // --- Key handling ---
+
+    fun handleKeyDown(keyCode: Int): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_BUTTON_Y || keyCode == KeyEvent.KEYCODE_F1) {
+            navHome.requestFocus()
+            return true
+        }
+        return false
+    }
+
+    fun simulateLongPress() {
+        recyclerView.findFocus()?.performLongClick()
+    }
+
+    // --- Inner RecyclerView adapter ---
+
+    private class SitesAdapter(
+        private val onSiteClick: (SiteEntry) -> Unit,
+        private val onAddClick: () -> Unit,
+        private val onEditSite: (SiteEntry) -> Unit,
+        private val onDeleteSite: (SiteEntry) -> Unit,
+        private val onToggleFavorite: (SiteEntry) -> Unit
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        private var sites: List<SiteEntry> = emptyList()
+
+        fun submitList(newSites: List<SiteEntry>) {
+            sites = newSites
+            notifyDataSetChanged()
+        }
+
+        override fun getItemCount() = sites.size + 1
+        override fun getItemViewType(position: Int) =
+            if (position < sites.size) TYPE_SITE else TYPE_ADD
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val cardWidth = SiteCardPresenter.computeCardWidth(parent)
+            val cardHeight = (cardWidth * 0.56f).toInt()
+            val density = parent.context.resources.displayMetrics.density
+
+            val bgDrawable = if (viewType == TYPE_ADD)
+                R.drawable.add_card_background
+            else
+                R.drawable.card_background
+
+            val frame = FrameLayout(parent.context).apply {
+                layoutParams = ViewGroup.MarginLayoutParams(cardWidth, cardHeight).also {
+                    it.setMargins(8, 8, 8, 8)
+                }
+                isFocusable = true
+                isFocusableInTouchMode = true
+                background = ContextCompat.getDrawable(parent.context, bgDrawable)
+                // Raise focused cards above neighbours
+                stateListAnimator = null
+            }
+
+            val tv = TextView(parent.context).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                setTextColor(Color.WHITE)
+                gravity = if (viewType == TYPE_ADD) Gravity.CENTER else Gravity.BOTTOM or Gravity.START
+                textSize = if (viewType == TYPE_ADD) 16f else 15f
+                typeface = Typeface.DEFAULT_BOLD
+                letterSpacing = 0.02f
+                val pad = (16 * density).toInt()
+                setPadding(pad, pad, pad, pad)
+            }
+
+            val starSize = (18 * density).toInt()
+            val starMargin = (10 * density).toInt()
+            val star = ImageView(parent.context).apply {
+                layoutParams = FrameLayout.LayoutParams(starSize, starSize).also {
+                    it.gravity = Gravity.TOP or Gravity.END
+                    it.setMargins(0, starMargin, starMargin, 0)
+                }
+                setImageResource(R.drawable.ic_star)
+                visibility = View.GONE
+            }
+
+            frame.addView(tv)
+            frame.addView(star)
+            return object : RecyclerView.ViewHolder(frame) {}
+        }
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            val frame = holder.itemView as FrameLayout
+            val tv = frame.getChildAt(0) as TextView
+            val star = frame.getChildAt(1) as ImageView
+
+            if (position < sites.size) {
+                val site = sites[position]
+                tv.text = cleanDisplayName(site.displayName)
+                star.visibility = if (site.isFavorite) View.VISIBLE else View.GONE
+                frame.setOnClickListener { onSiteClick(site) }
+                frame.setOnLongClickListener {
+                    val favLabel = if (site.isFavorite) "Unfavorite" else "Favorite"
+                    AlertDialog.Builder(frame.context)
+                        .setTitle(site.displayName)
+                        .setItems(arrayOf(favLabel, "Edit", "Delete")) { _, which ->
+                            when (which) {
+                                0 -> onToggleFavorite(site)
+                                1 -> onEditSite(site)
+                                2 -> onDeleteSite(site)
+                            }
+                        }
+                        .show()
+                    true
+                }
+            } else {
+                tv.text = "+ Add Site"
+                star.visibility = View.GONE
+                frame.setOnClickListener { onAddClick() }
+                frame.setOnLongClickListener(null)
+            }
+        }
+    }
+
+    companion object {
+        const val PREFS_NAME = "pinstream_settings"
+        const val KEY_CURSOR_SPEED = "cursor_speed"
+        const val KEY_SCROLL_SPEED = "scroll_speed"
+        private const val TYPE_SITE = 0
+        private const val TYPE_ADD = 1
+        private val SPEED_LABELS =
+            arrayOf("Slow (0.5×)", "Normal (1×)", "Fast (1.5×)", "Very Fast (2×)")
+        private val SPEED_VALUES = floatArrayOf(0.5f, 1.0f, 1.5f, 2.0f)
+
+        const val REMOTE_CONFIG_URL =
+            "https://caesiumstudio.github.io/r/pinstream/sites.json"
+
+        fun cleanDisplayName(raw: String): String {
+            // Strip www. prefix, then take only the part before the first dot, capitalize
+            val noWww = raw.removePrefix("www.")
+            val name = noWww.substringBefore(".")
+            return name.replaceFirstChar { it.uppercaseChar() }
+        }
+    }
+}

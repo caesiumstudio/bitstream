@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Focused: bright red border + slightly lighter surface, subtle scale achieved via elevation in code -->
+    <item android:state_focused="true">
+        <layer-list>
+            <!-- Red outer glow (bleed 3dp) -->
+            <item android:left="-3dp" android:top="-3dp" android:right="-3dp" android:bottom="-3dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#33E50914" />
+                    <corners android:radius="13dp" />
+                </shape>
+            </item>
+            <!-- Main card surface -->
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/card_surface_hover" />
+                    <stroke android:width="3dp" android:color="@color/netflix_red" />
+                    <corners android:radius="10dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Default: near-black surface with barely-visible border -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/card_surface" />
+            <stroke android:width="1dp" android:color="@color/card_border" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+
+</selector>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Selected: transparent bg + Netflix-red bottom bar (3dp) -->
+    <item android:state_selected="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/fastlane_background" />
+                </shape>
+            </item>
+            <!-- Red bottom indicator, full width -->
+            <item android:gravity="bottom" android:height="3dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/netflix_red" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Focused: subtle red-tinted overlay so keyboard nav is clear -->
+    <item android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="#1AE50914" />
+                </shape>
+            </item>
+            <item android:gravity="bottom" android:height="2dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/netflix_red" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Default: pure black -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/fastlane_background" />
+        </shape>
+    </item>
+
+</selector>

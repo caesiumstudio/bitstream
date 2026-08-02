@@ -1,0 +1,27 @@
+<resources>
+    <!-- Background gradient endpoints -->
+    <color name="background_gradient_start">#000000</color>
+    <color name="background_gradient_end">#141414</color>
+
+    <!-- Surface layers: richest-black → content surface -->
+    <color name="default_background">#141414</color>
+    <color name="fastlane_background">#000000</color>
+    <color name="card_surface">#1F1F1F</color>
+    <color name="card_surface_hover">#2A2A2A</color>
+
+    <!-- Netflix red accent -->
+    <color name="netflix_red">#E50914</color>
+    <color name="netflix_red_dark">#B20710</color>
+    <color name="search_opaque">#E50914</color>
+    <color name="selected_background">#E50914</color>
+    <color name="card_focused">#E50914</color>
+
+    <!-- Text colours -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#AAAAAA</color>
+    <color name="text_hint">#666666</color>
+
+    <!-- Divider / border -->
+    <color name="divider">#2A2A2A</color>
+    <color name="card_border">#333333</color>
+</resources>
