@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
@@ -32,6 +33,10 @@ class WebViewFragment : Fragment() {
 
     private var cachedUserAgent: String = ""
 
+    // Cached prefs values — read once in onViewCreated, not on every D-pad event
+    private var cursorSpeedPref: Float = 1.0f
+    private var scrollSpeedPref: Float = 1.0f
+
     // Cursor position in pixels
     private var cursorX = 0f
     private var cursorY = 0f
@@ -40,17 +45,9 @@ class WebViewFragment : Fragment() {
     private val CURSOR_STEP_DP = 8f
 
     // Speed multipliers read from settings on each move (so changes take effect immediately)
-    private fun cursorSpeedMultiplier(): Float {
-        val prefs =
-            requireContext().getSharedPreferences(MainFragment.PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getFloat(MainFragment.KEY_CURSOR_SPEED, 1.0f)
-    }
+    private fun cursorSpeedMultiplier(): Float = cursorSpeedPref
 
-    private fun scrollSpeedMultiplier(): Float {
-        val prefs =
-            requireContext().getSharedPreferences(MainFragment.PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getFloat(MainFragment.KEY_SCROLL_SPEED, 1.0f)
-    }
+    private fun scrollSpeedMultiplier(): Float = scrollSpeedPref
 
     // Auto-repeat while key held: fires every REPEAT_INTERVAL_MS after REPEAT_DELAY_MS
     private val REPEAT_DELAY_MS = 300L
@@ -104,6 +101,11 @@ class WebViewFragment : Fragment() {
         progressBar = view.findViewById(R.id.progress_bar)
         cursor = view.findViewById(R.id.cursor)
 
+        // Cache prefs once here instead of reading on every D-pad event
+        val prefs = requireContext().getSharedPreferences(MainFragment.PREFS_NAME, Context.MODE_PRIVATE)
+        cursorSpeedPref = prefs.getFloat(MainFragment.KEY_CURSOR_SPEED, 1.0f)
+        scrollSpeedPref = prefs.getFloat(MainFragment.KEY_SCROLL_SPEED, 1.0f)
+
         lifecycleScope.launch {
             AdBlocker.initialize(requireContext())
         }
@@ -120,17 +122,23 @@ class WebViewFragment : Fragment() {
     }
 
     private fun configureWebView() {
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            databaseEnabled = true
             loadWithOverviewMode = true
             useWideViewPort = true
-            setSupportZoom(true)
+            cacheMode = WebSettings.LOAD_DEFAULT
+            setSupportZoom(false)
             builtInZoomControls = false
+            setGeolocationEnabled(false)
+            allowFileAccess = false
             @Suppress("DEPRECATION")
             mediaPlaybackRequiresUserGesture = false
             userAgentString =
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         }
 
         cachedUserAgent = webView.settings.userAgentString
@@ -313,6 +321,12 @@ class WebViewFragment : Fragment() {
                     )
                 )
             }
+            @Suppress("DEPRECATION")
+            requireActivity().window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
             webView.visibility = View.GONE
             cursor.visibility = View.GONE
         }
@@ -324,6 +338,8 @@ class WebViewFragment : Fragment() {
             customView = null
             customViewCallback?.onCustomViewHidden()
             customViewCallback = null
+            @Suppress("DEPRECATION")
+            requireActivity().window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             webView.visibility = View.VISIBLE
             cursor.visibility = View.VISIBLE
         }
