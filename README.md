@@ -87,4 +87,3 @@ This project is open source. See [LICENSE](LICENSE) for details.
 ---
 
 > PinStream does not host, distribute, or endorse any content. It is a browser launcher that accesses publicly available websites.
-testing
