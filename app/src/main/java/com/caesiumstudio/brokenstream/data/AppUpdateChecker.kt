@@ -22,7 +22,7 @@ object AppUpdateChecker {
         val changelog: String
     )
 
-    const val UPDATE_JSON_URL = "https://caesiumstudio.github.io/r/pinstream/update.json"
+    const val UPDATE_JSON_URL = "https://raw.githubusercontent.com/caesiumstudio/pinstream/main/update.json"
     private const val PREFS_NAME = "pinstream_update"
     private const val KEY_LAST_CHECKED = "last_checked_ms"
     private const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L

@@ -510,7 +510,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         private val SPEED_VALUES = floatArrayOf(0.5f, 1.0f, 1.5f, 2.0f)
 
         const val REMOTE_CONFIG_URL =
-            "https://caesiumstudio.github.io/r/pinstream/sites.json"
+            "https://raw.githubusercontent.com/caesiumstudio/pinstream/main/sites.json"
 
         fun cleanDisplayName(raw: String): String {
             // Strip www. prefix, then take only the part before the first dot, capitalize
