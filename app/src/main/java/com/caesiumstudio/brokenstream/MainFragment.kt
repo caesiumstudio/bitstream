@@ -45,6 +45,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
 
     private lateinit var tvCursorSpeed: TextView
     private lateinit var tvScrollSpeed: TextView
+    private lateinit var tvCheckUpdates: TextView
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -63,6 +64,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         navExit = view.findViewById(R.id.nav_exit)
         tvCursorSpeed = view.findViewById(R.id.setting_cursor_speed)
         tvScrollSpeed = view.findViewById(R.id.setting_scroll_speed)
+        tvCheckUpdates = view.findViewById(R.id.setting_check_updates)
 
         setupNav()
         setupGrid()
@@ -103,6 +105,34 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
             if (!AppUpdateChecker.isUpdateAvailable(requireContext(), info.versionCode)) return@execute
             view?.post {
                 if (isAdded) showUpdateDialog(info)
+            }
+        }
+    }
+
+    private fun checkForUpdatesManually() {
+        tvCheckUpdates.isEnabled = false
+        tvCheckUpdates.text = "Checking…"
+        Executors.newSingleThreadExecutor().execute {
+            val info = AppUpdateChecker.fetchUpdateInfo(AppUpdateChecker.UPDATE_JSON_URL)
+            view?.post {
+                if (!isAdded) return@post
+                tvCheckUpdates.isEnabled = true
+                tvCheckUpdates.text = "Check for Updates"
+                if (info == null) {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Check for Updates")
+                        .setMessage("Could not reach the update server. Please try again later.")
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                } else if (!AppUpdateChecker.isUpdateAvailable(requireContext(), info.versionCode)) {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Up to Date")
+                        .setMessage("You're running the latest version.")
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                } else {
+                    showUpdateDialog(info)
+                }
             }
         }
     }
@@ -295,6 +325,9 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                 KEY_SCROLL_SPEED,
                 tvScrollSpeed
             )
+        }
+        tvCheckUpdates.setOnClickListener {
+            checkForUpdatesManually()
         }
     }
 

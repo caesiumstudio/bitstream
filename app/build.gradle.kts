@@ -16,7 +16,6 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "3"
-
     }
 
     buildTypes {

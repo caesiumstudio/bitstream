@@ -176,6 +176,33 @@
                     android:background="@drawable/settings_item_background"
                     android:layout_marginBottom="10dp" />
 
+                <!-- Section header -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ABOUT"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.15"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="16dp"
+                    android:focusable="false" />
+
+                <TextView
+                    android:id="@+id/setting_check_updates"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Check for Updates"
+                    android:textColor="@color/text_primary"
+                    android:textSize="17sp"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingTop="18dp"
+                    android:paddingBottom="18dp"
+                    android:focusable="true"
+                    android:background="@drawable/settings_item_background"
+                    android:layout_marginBottom="10dp" />
+
             </LinearLayout>
         </ScrollView>
 
