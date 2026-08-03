@@ -17,18 +17,21 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.caesiumstudio.pinstream.data.AppUpdateChecker
 import com.caesiumstudio.pinstream.data.SiteEntry
 import com.caesiumstudio.pinstream.data.SiteRepository
 import com.caesiumstudio.pinstream.ui.home.AddSiteDialogFragment
 import com.caesiumstudio.pinstream.ui.home.SiteCardPresenter
 import com.caesiumstudio.pinstream.webview.WebViewActivity
 import java.util.concurrent.Executors
+import java.io.File
 
 class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
 
@@ -66,6 +69,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         setupSettings()
         showHome()
         syncRemoteSites()
+        checkForUpdates()
     }
 
     // --- Remote config sync ---
@@ -85,6 +89,102 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                     if (isAdded) sitesAdapter.submitList(available)
                 }
             }
+        }
+    }
+
+    // --- In-app updates ---
+
+    private fun checkForUpdates() {
+        if (!AppUpdateChecker.shouldCheck(requireContext())) return
+        Executors.newSingleThreadExecutor().execute {
+            AppUpdateChecker.recordChecked(requireContext())
+            val info = AppUpdateChecker.fetchUpdateInfo(AppUpdateChecker.UPDATE_JSON_URL)
+                ?: return@execute
+            if (!AppUpdateChecker.isUpdateAvailable(requireContext(), info.versionCode)) return@execute
+            view?.post {
+                if (isAdded) showUpdateDialog(info)
+            }
+        }
+    }
+
+    private fun showUpdateDialog(info: AppUpdateChecker.UpdateInfo) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(getString(R.string.update_title, info.versionName))
+            .setMessage(info.changelog.ifEmpty { getString(R.string.update_default_changelog) })
+            .setPositiveButton(R.string.update_download_install) { dialog, _ ->
+                dialog.dismiss()
+                startDownload(info)
+            }
+            .setNegativeButton(R.string.update_not_now, null)
+            .show()
+    }
+
+    private fun startDownload(info: AppUpdateChecker.UpdateInfo) {
+        val ctx = requireContext()
+        val progressBar = ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            isIndeterminate = true
+        }
+        val statusText = TextView(ctx).apply {
+            setText(R.string.update_downloading)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(0, 16, 0, 0)
+        }
+        val layout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(64, 48, 64, 32)
+            addView(progressBar)
+            addView(statusText)
+        }
+        val progressDialog = AlertDialog.Builder(ctx)
+            .setTitle(R.string.update_downloading_title)
+            .setView(layout)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        Executors.newSingleThreadExecutor().execute {
+            val apkFile = AppUpdateChecker.downloadApk(ctx, info.apkUrl) { percent ->
+                view?.post {
+                    if (isAdded && progressDialog.isShowing) {
+                        if (percent >= 0) {
+                            progressBar.isIndeterminate = false
+                            progressBar.progress = percent
+                            statusText.text = getString(R.string.update_downloading_progress, percent)
+                        }
+                    }
+                }
+            }
+            view?.post {
+                if (!isAdded) return@post
+                progressDialog.dismiss()
+                if (apkFile != null) {
+                    handleInstall(apkFile)
+                } else {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.update_failed_title)
+                        .setMessage(R.string.update_failed_msg)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun handleInstall(apkFile: File) {
+        val ctx = requireContext()
+        if (AppUpdateChecker.canInstallUnknownSources(ctx)) {
+            AppUpdateChecker.installApk(ctx, apkFile)
+        } else {
+            AlertDialog.Builder(ctx)
+                .setTitle(R.string.update_permission_title)
+                .setMessage(R.string.update_permission_msg)
+                .setPositiveButton(R.string.update_open_settings) { _, _ ->
+                    AppUpdateChecker.openInstallPermissionSettings(ctx)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
     }
 

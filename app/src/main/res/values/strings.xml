@@ -16,4 +16,18 @@
     <!-- Error messages -->
     <string name="error_fragment_message">An error occurred</string>
     <string name="dismiss_error">Dismiss</string>
+
+    <!-- In-app update -->
+    <string name="update_title">Update Available — v%s</string>
+    <string name="update_default_changelog">A new version is available.</string>
+    <string name="update_download_install">Download &amp; Install</string>
+    <string name="update_not_now">Not Now</string>
+    <string name="update_downloading_title">Downloading Update</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_downloading_progress">Downloading… %d%%</string>
+    <string name="update_failed_title">Download Failed</string>
+    <string name="update_failed_msg">Could not download the update. Please try again later.</string>
+    <string name="update_permission_title">Permission Required</string>
+    <string name="update_permission_msg">To install updates, allow PinStream to install apps from unknown sources. Open Settings to grant permission, then relaunch the app.</string>
+    <string name="update_open_settings">Open Settings</string>
 </resources>
