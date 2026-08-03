@@ -14,8 +14,8 @@ android {
         applicationId = "com.caesiumstudio.pinstream"
         minSdk = 21
         targetSdk = 36
-        versionCode = 4
-        versionName = "4"
+        versionCode = 3
+        versionName = "3"
     }
 
     buildTypes {
