@@ -297,10 +297,19 @@ class WebViewFragment : Fragment() {
             // Ensure WebView never intercepts D-pad on new page loads
             webView.isFocusable = false
             webView.isFocusableInTouchMode = false
+            // Inject scriptlets early — before page scripts run (best effort)
+            injectScriptlets()
         }
 
         override fun onPageFinished(view: WebView, url: String) {
             progressBar.visibility = View.GONE
+            injectAdBlockCss()
+            injectScriptlets()
+        }
+
+        // Catch SPA navigations that don't trigger onPageStarted/onPageFinished
+        override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+            super.doUpdateVisitedHistory(view, url, isReload)
             injectAdBlockCss()
         }
     }
@@ -352,27 +361,140 @@ class WebViewFragment : Fragment() {
         ): Boolean = false
     }
 
+    private fun injectScriptlets() {
+        val js = """
+            (function() {
+                if (window.__psScriptletsInjected) return;
+                window.__psScriptletsInjected = true;
+
+                // Block pop-ups and new windows
+                window.open = function() { return null; };
+
+                // Neutralize document.write (used to inject ad iframes)
+                var _origWrite = document.write.bind(document);
+                document.write = function(s) {
+                    if (typeof s === 'string' && (
+                        s.indexOf('googlesyndication') !== -1 ||
+                        s.indexOf('doubleclick') !== -1 ||
+                        s.indexOf('adservice') !== -1 ||
+                        s.indexOf('adnxs') !== -1 ||
+                        s.indexOf('<script') !== -1 && s.indexOf('ad') !== -1
+                    )) return;
+                    _origWrite(s);
+                };
+
+                // Freeze anti-adblock property reads
+                var noopFn = function() {};
+                try { Object.defineProperty(window, 'googletag', { get: function() { return { cmd: { push: noopFn }, defineSlot: noopFn, pubads: function() { return { enableSingleRequest: noopFn, collapseEmptyDivs: noopFn, addEventListener: noopFn, setTargeting: noopFn, refresh: noopFn, disableInitialLoad: noopFn }; }, enableServices: noopFn, display: noopFn }; }, configurable: true }); } catch(e) {}
+                try { Object.defineProperty(window, '__cmp', { get: function() { return noopFn; }, configurable: true }); } catch(e) {}
+                try { Object.defineProperty(window, '__tcfapi', { get: function() { return noopFn; }, configurable: true }); } catch(e) {}
+
+                // Block setInterval/setTimeout used by anti-adblock detectors
+                var _origSetInterval = window.setInterval;
+                window.setInterval = function(fn, delay) {
+                    if (typeof fn === 'function') {
+                        var src = fn.toString();
+                        if (src.indexOf('adblock') !== -1 || src.indexOf('AdBlock') !== -1 ||
+                            src.indexOf('adblocker') !== -1 || src.indexOf('ad_blocker') !== -1) {
+                            return 0;
+                        }
+                    }
+                    return _origSetInterval.apply(this, arguments);
+                };
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
     private fun injectAdBlockCss() {
         val css = """
             (function() {
-                if (document.getElementById('__bs_adblock_css')) return;
+                if (document.getElementById('__ps_adblock_css')) return;
                 var style = document.createElement('style');
-                style.id = '__bs_adblock_css';
+                style.id = '__ps_adblock_css';
                 style.innerHTML = `
+                    /* Generic ad containers by attribute patterns */
                     [id*="ad-"],[class*="ad-"],[id*="-ad"],[class*="-ad"],
                     [id*="ads-"],[class*="ads-"],[id*="-ads"],[class*="-ads"],
+                    [id*="advert"],[class*="advert"],
+                    [id*="banner"],[class*="banner-ad"],[class*="ad-banner"],
+                    [id*="sponsor"],[class*="sponsor"],
+                    [data-ad],[data-ad-unit],[data-adslot],[data-google-query-id],
+
+                    /* Common ad classes */
                     .advertisement,.ad-banner,.banner-ad,.ad-container,
-                    .ad-wrapper,.ad-slot,.ad-unit,.adsbygoogle,
-                    ins.adsbygoogle,[id*="google_ads"],[id*="GoogleAd"],
+                    .ad-wrapper,.ad-slot,.ad-unit,.ad-block,.ad-box,
+                    .adsbygoogle,.ads-container,.ads-wrapper,.ads-block,
+                    .adsbox,.ad_unit,.ad_container,.ad_wrapper,
+                    ins.adsbygoogle,
+
+                    /* Google Ads */
+                    [id*="google_ads"],[id*="GoogleAd"],[id*="google-ad"],
+                    [class*="google-ad"],[class*="GoogleAd"],
+                    iframe[src*="doubleclick"],iframe[src*="googlesyndication"],
+                    iframe[src*="adservice"],iframe[src*="googleadservices"],
+                    iframe[src*="google_ads"],iframe[src*="tpc.googlesyndication"],
+
+                    /* Taboola / Outbrain / content recommendation widgets */
+                    [id*="taboola"],[class*="taboola"],
+                    [id*="outbrain"],[class*="outbrain"],
+                    [id*="revcontent"],[class*="revcontent"],
+                    [class*="trc_related"],[id*="trc_related"],
+                    .OUTBRAIN,.taboola-widget,
+
+                    /* Overlays, popups, modals used for ads */
                     .popup-overlay,.modal-overlay,.sticky-ad,.fixed-ad,
                     [class*="popup-"],[class*="overlay-ad"],
-                    iframe[src*="doubleclick"],iframe[src*="googlesyndication"],
-                    iframe[src*="adservice"] {
+                    [class*="interstitial"],[id*="interstitial"],
+                    [class*="adoverlay"],[class*="ad-overlay"],
+
+                    /* Sticky / floating ad bars */
+                    [class*="sticky-bottom"],[id*="sticky-bottom"],
+                    [class*="floating-ad"],[class*="float-ad"],
+                    [class*="adhesion"],[id*="adhesion"],
+
+                    /* YouTube-specific */
+                    ytd-promoted-sparkles-web-renderer,
+                    ytd-ad-slot-renderer,
+                    ytd-in-feed-ad-layout-renderer,
+                    ytd-display-ad-renderer,
+                    .ytd-promoted-video-renderer,
+                    #player-ads,#masthead-ad,
+                    .ytp-ad-module,.ytp-ad-overlay-container,
+                    .ytp-ad-text-overlay,
+
+                    /* Reddit-specific */
+                    [data-adtype],[class*="promoted-link"],
+                    .promoted,.promoted-post,
+
+                    /* Twitter/X-specific */
+                    [data-testid="placementTracking"],
+                    article[data-testid*="ad"],
+
+                    /* Amazon-specific */
+                    [cel_widget_id*="ad"],[data-component-type*="ad"],
+                    .AdHolder,.s-sponsored-list-header,
+
+                    /* Generic tracker pixels */
+                    img[width="1"][height="1"],
+                    img[src*="pixel"],img[src*="beacon"],
+                    img[src*="track"],
+
+                    /* Cookie consent / GDPR popups (often block content) */
+                    #onetrust-consent-sdk,#cookieConsent,
+                    .cookie-notice,.cookie-banner,.cookie-overlay,
+                    [class*="gdpr-"],[id*="gdpr-"],
+                    [class*="cookie-wall"],[id*="cookie-wall"] {
                         display: none !important;
                         visibility: hidden !important;
                         height: 0 !important;
                         max-height: 0 !important;
+                        overflow: hidden !important;
+                        pointer-events: none !important;
                     }
+
+                    /* Prevent layout shift from removed elements */
+                    body { overflow-x: hidden !important; }
                 `;
                 (document.head || document.documentElement).appendChild(style);
             })();
