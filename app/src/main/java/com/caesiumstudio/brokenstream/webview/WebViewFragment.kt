@@ -60,6 +60,10 @@ class WebViewFragment : Fragment() {
     private var atTopEdge = false
     private var atBottomEdge = false
 
+    // Acceleration: track when the current direction was first pressed
+    private var pressStartTime: Long = 0L
+    private val MAX_ACCEL = 4f   // top speed is 4× base at full acceleration
+
     private val handler = Handler(Looper.getMainLooper())
     private var activeDirection: Int = 0
 
@@ -159,6 +163,7 @@ class WebViewFragment : Fragment() {
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (activeDirection != keyCode) {
                     activeDirection = keyCode
+                    pressStartTime = System.currentTimeMillis()
                     handler.removeCallbacks(repeatRunnable)
                     handler.postDelayed(repeatRunnable, REPEAT_DELAY_MS)
                 }
@@ -192,7 +197,11 @@ class WebViewFragment : Fragment() {
     }
 
     private fun moveCursor(keyCode: Int) {
-        val step = CURSOR_STEP_DP * resources.displayMetrics.density * cursorSpeedMultiplier()
+        val density = resources.displayMetrics.density
+        val elapsed = System.currentTimeMillis() - pressStartTime
+        val accel = (elapsed / 1000f).coerceIn(0f, 1f)
+        val multiplier = 1f + accel * (MAX_ACCEL - 1f)
+        val step = CURSOR_STEP_DP * density * cursorSpeedMultiplier() * multiplier
         val parent = view ?: return
 
         when (keyCode) {
@@ -205,11 +214,10 @@ class WebViewFragment : Fragment() {
         cursorY = cursorY.coerceIn(0f, parent.height.toFloat())
         updateCursorPosition()
 
-        val step2 = CURSOR_STEP_DP * resources.displayMetrics.density * cursorSpeedMultiplier()
         val wasAtTopEdge = atTopEdge
         val wasAtBottomEdge = atBottomEdge
-        atTopEdge = cursorY <= step2
-        atBottomEdge = cursorY >= parent.height - step2
+        atTopEdge = cursorY <= step
+        atBottomEdge = cursorY >= parent.height - step
 
         // Start edge scroll timer when cursor newly reaches an edge
         if (atBottomEdge && !wasAtBottomEdge && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {

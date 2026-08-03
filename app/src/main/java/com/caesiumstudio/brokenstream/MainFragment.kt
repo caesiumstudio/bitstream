@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -13,12 +15,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.caesiumstudio.pinstream.data.SiteEntry
 import com.caesiumstudio.pinstream.data.SiteRepository
 import com.caesiumstudio.pinstream.ui.home.AddSiteDialogFragment
@@ -259,6 +263,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
             val cardWidth = SiteCardPresenter.computeCardWidth(parent)
             val cardHeight = (cardWidth * 0.56f).toInt()
             val density = parent.context.resources.displayMetrics.density
+            val pad = (16 * density).toInt()
 
             val bgDrawable = if (viewType == TYPE_ADD)
                 R.drawable.add_card_background
@@ -272,49 +277,103 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                 isFocusable = true
                 isFocusableInTouchMode = true
                 background = ContextCompat.getDrawable(parent.context, bgDrawable)
-                // Raise focused cards above neighbours
                 stateListAnimator = null
             }
 
-            val tv = TextView(parent.context).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
-                setTextColor(Color.WHITE)
-                gravity = if (viewType == TYPE_ADD) Gravity.CENTER else Gravity.BOTTOM or Gravity.START
-                textSize = if (viewType == TYPE_ADD) 16f else 15f
-                typeface = Typeface.DEFAULT_BOLD
-                letterSpacing = 0.02f
-                val pad = (16 * density).toInt()
-                setPadding(pad, pad, pad, pad)
-            }
-
-            val starSize = (18 * density).toInt()
-            val starMargin = (10 * density).toInt()
-            val star = ImageView(parent.context).apply {
-                layoutParams = FrameLayout.LayoutParams(starSize, starSize).also {
-                    it.gravity = Gravity.TOP or Gravity.END
-                    it.setMargins(0, starMargin, starMargin, 0)
+            if (viewType == TYPE_ADD) {
+                // "Add Site" tile: centered label only, no favicon
+                val tv = TextView(parent.context).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER
+                    textSize = 16f
+                    typeface = Typeface.DEFAULT_BOLD
+                    letterSpacing = 0.02f
+                    setPadding(pad, pad, pad, pad)
                 }
-                setImageResource(R.drawable.ic_star)
-                visibility = View.GONE
+                frame.addView(tv)
+            } else {
+                // Site tile: favicon + label stacked vertically, centered as a unit
+                val faviconSize = (40 * density).toInt()
+
+                val inner = LinearLayout(parent.context).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    ).also { it.gravity = Gravity.CENTER }
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setPadding(pad, pad, pad, pad)
+                }
+
+                val faviconView = ImageView(parent.context).apply {
+                    layoutParams = LinearLayout.LayoutParams(faviconSize, faviconSize).also {
+                        it.gravity = Gravity.CENTER_HORIZONTAL
+                        it.bottomMargin = (6 * density).toInt()
+                    }
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }
+
+                val tv = TextView(parent.context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER
+                    textSize = 13f
+                    typeface = Typeface.DEFAULT_BOLD
+                    letterSpacing = 0.02f
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                }
+
+                inner.addView(faviconView)
+                inner.addView(tv)
+                frame.addView(inner)
+
+                // Star badge: top-right, unchanged
+                val starSize = (18 * density).toInt()
+                val starMargin = (10 * density).toInt()
+                val star = ImageView(parent.context).apply {
+                    layoutParams = FrameLayout.LayoutParams(starSize, starSize).also {
+                        it.gravity = Gravity.TOP or Gravity.END
+                        it.setMargins(0, starMargin, starMargin, 0)
+                    }
+                    setImageResource(R.drawable.ic_star)
+                    visibility = View.GONE
+                }
+                frame.addView(star)
             }
 
-            frame.addView(tv)
-            frame.addView(star)
             return object : RecyclerView.ViewHolder(frame) {}
         }
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             val frame = holder.itemView as FrameLayout
-            val tv = frame.getChildAt(0) as TextView
-            val star = frame.getChildAt(1) as ImageView
 
             if (position < sites.size) {
                 val site = sites[position]
+                // Site tile: frame[0]=inner(favicon+tv), frame[1]=star
+                val inner = frame.getChildAt(0) as LinearLayout
+                val faviconView = inner.getChildAt(0) as ImageView
+                val tv = inner.getChildAt(1) as TextView
+                val star = frame.getChildAt(1) as ImageView
+
                 tv.text = cleanDisplayName(site.displayName)
                 star.visibility = if (site.isFavorite) View.VISIBLE else View.GONE
+
+                val domain = Uri.parse(site.url).host?.removePrefix("www.") ?: ""
+                val faviconUrl = "https://www.google.com/s2/favicons?domain=$domain&sz=128"
+                Glide.with(faviconView)
+                    .load(faviconUrl)
+                    .placeholder(R.drawable.ic_globe)
+                    .error(R.drawable.ic_globe)
+                    .into(faviconView)
+
                 frame.setOnClickListener { onSiteClick(site) }
                 frame.setOnLongClickListener {
                     val favLabel = if (site.isFavorite) "Unfavorite" else "Favorite"
@@ -331,8 +390,9 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                     true
                 }
             } else {
+                // "Add Site" tile: single TextView child
+                val tv = frame.getChildAt(0) as TextView
                 tv.text = "+ Add Site"
-                star.visibility = View.GONE
                 frame.setOnClickListener { onAddClick() }
                 frame.setOnLongClickListener(null)
             }
