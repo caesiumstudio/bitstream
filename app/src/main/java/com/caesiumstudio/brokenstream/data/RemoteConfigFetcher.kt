@@ -1,19 +1,14 @@
 package com.caesiumstudio.pinstream.data
 
-import org.json.JSONObject
+import android.net.Uri
+import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
  * Fetches the remote sites JSON config from a public URL.
- * Expected JSON format:
- * {
- *   "version": 1,
- *   "sites": [
- *     { "id": 1, "name": "SiteName", "url": "https://example.com" },
- *     ...
- *   ]
- * }
+ * Expected JSON format: a plain array of URL strings.
+ * [ "https://example.com", "https://another.com", ... ]
  */
 object RemoteConfigFetcher {
 
@@ -40,14 +35,16 @@ object RemoteConfigFetcher {
     }
 
     private fun parseJson(json: String): List<RemoteSite> {
-        val root = JSONObject(json)
-        val array = root.getJSONArray("sites")
-        return (0 until array.length()).map { i ->
-            val obj = array.getJSONObject(i)
+        val array = JSONArray(json)
+        return (0 until array.length()).mapNotNull { i ->
+            val url = array.getString(i).trim()
+            if (url.isEmpty()) return@mapNotNull null
+            val host = Uri.parse(url).host?.removePrefix("www.") ?: return@mapNotNull null
+            val name = host.substringBefore(".").replaceFirstChar { it.uppercaseChar() }
             RemoteSite(
-                id = obj.getLong("id"),
-                name = obj.getString("name"),
-                url = obj.getString("url")
+                id = url.hashCode().toLong() and 0xFFFFFFFFL,
+                name = name,
+                url = url
             )
         }
     }
