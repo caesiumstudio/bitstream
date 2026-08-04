@@ -104,20 +104,71 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <!-- Home: site tile grid -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/sites_grid"
+        <!-- Home: recents + site tile grid -->
+        <LinearLayout
+            android:id="@+id/home_container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingStart="28dp"
-            android:paddingEnd="28dp"
-            android:paddingTop="24dp"
-            android:paddingBottom="24dp"
-            android:clipToPadding="false"
-            android:focusable="true"
-            android:descendantFocusability="afterDescendants"
-            android:nextFocusUp="@id/nav_home"
-            android:visibility="visible" />
+            android:orientation="vertical"
+            android:visibility="visible">
+
+            <!-- Recently Visited row (hidden when empty) -->
+            <LinearLayout
+                android:id="@+id/recents_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:paddingTop="20dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/recents_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RECENTLY VISITED"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.15"
+                    android:layout_marginBottom="10dp"
+                    android:focusable="false" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recents_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:focusable="true"
+                    android:descendantFocusability="afterDescendants"
+                    android:nextFocusUp="@id/nav_home"
+                    android:clipToPadding="false" />
+
+                <!-- Divider below recents -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/divider"
+                    android:layout_marginTop="16dp" />
+
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/sites_grid"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="24dp"
+                android:clipToPadding="false"
+                android:focusable="true"
+                android:descendantFocusability="afterDescendants"
+                android:nextFocusUp="@id/nav_home"
+                android:visibility="visible" />
+
+        </LinearLayout>
 
         <!-- Settings panel -->
         <ScrollView

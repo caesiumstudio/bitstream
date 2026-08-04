@@ -99,16 +99,20 @@ class SiteRepository(context: Context) {
     fun fetchRemote(configUrl: String): List<SiteEntry>? {
         val remoteSites = RemoteConfigFetcher.fetch(configUrl)
         if (remoteSites.isEmpty()) return null
-        // Preserve existing favorites across syncs
-        val existingFavs = loadSites().filter { it.isFavorite }.map { it.id }.toSet()
-        val entries = remoteSites.map { remote ->
+        val existing = loadSites()
+        val existingFavIds = existing.filter { it.isFavorite }.map { it.id }.toSet()
+        val remoteIds = remoteSites.map { it.id }.toSet()
+        // Keep user-added sites (IDs not from remote — timestamp-based, always > 0xFFFFFFFF)
+        val userSites = existing.filter { it.id !in remoteIds }
+        val remoteEntries = remoteSites.map { remote ->
             SiteEntry(
                 id = remote.id,
                 url = remote.url,
                 displayName = remote.name,
-                isFavorite = remote.id in existingFavs
+                isFavorite = remote.id in existingFavIds
             )
         }.sortedByDescending { it.isFavorite }
+        val entries = remoteEntries + userSites
         saveSites(entries)
         return entries
     }
@@ -118,9 +122,13 @@ class SiteRepository(context: Context) {
      * Must be called from a background thread.
      */
     fun filterAvailable(sites: List<SiteEntry>): List<SiteEntry> {
-        val available = sites.filter { SiteAvailabilityChecker.isReachable(it.url) }
-        saveSites(available)
-        return available
+        val remoteIds = sites.map { it.id }.toSet()
+        // Always keep user-added sites regardless of reachability check
+        val userSites = loadSites().filter { it.id !in remoteIds }
+        val available = sites.filter { it.isFavorite || SiteAvailabilityChecker.isReachable(it.url) }
+        val entries = available + userSites
+        saveSites(entries)
+        return entries
     }
 
     /**

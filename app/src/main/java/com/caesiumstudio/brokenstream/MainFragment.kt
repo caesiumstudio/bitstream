@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.caesiumstudio.bitstream.data.AppUpdateChecker
+import com.caesiumstudio.bitstream.data.RecentlyVisitedRepository
 import com.caesiumstudio.bitstream.data.SiteEntry
 import com.caesiumstudio.bitstream.data.SiteRepository
 import com.caesiumstudio.bitstream.ui.home.AddSiteDialogFragment
@@ -36,12 +37,17 @@ import java.io.File
 class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
 
     private lateinit var repo: SiteRepository
+    private lateinit var recentsRepo: RecentlyVisitedRepository
     private lateinit var recyclerView: RecyclerView
     private lateinit var settingsScroll: ScrollView
+    private lateinit var homeContainer: View
+    private lateinit var recentsSection: View
+    private lateinit var recentsRow: RecyclerView
     private lateinit var navHome: TextView
     private lateinit var navSettings: TextView
     private lateinit var navExit: TextView
     private lateinit var sitesAdapter: SitesAdapter
+    private lateinit var recentsAdapter: SitesAdapter
 
     private lateinit var tvCursorSpeed: TextView
     private lateinit var tvScrollSpeed: TextView
@@ -56,9 +62,13 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         repo = SiteRepository(requireContext())
+        recentsRepo = RecentlyVisitedRepository(requireContext())
 
         recyclerView = view.findViewById(R.id.sites_grid)
         settingsScroll = view.findViewById(R.id.settings_scroll)
+        homeContainer = view.findViewById(R.id.home_container)
+        recentsSection = view.findViewById(R.id.recents_section)
+        recentsRow = view.findViewById(R.id.recents_row)
         navHome = view.findViewById(R.id.nav_home)
         navSettings = view.findViewById(R.id.nav_settings)
         navExit = view.findViewById(R.id.nav_exit)
@@ -68,10 +78,16 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
 
         setupNav()
         setupGrid()
+        setupRecents()
         setupSettings()
         showHome()
         syncRemoteSites()
         checkForUpdates()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshRecents()
     }
 
     // --- Remote config sync ---
@@ -227,14 +243,14 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     }
 
     private fun showHome() {
-        recyclerView.visibility = View.VISIBLE
+        homeContainer.visibility = View.VISIBLE
         settingsScroll.visibility = View.GONE
         setActiveTab(navHome)
         recyclerView.requestFocus()
     }
 
     private fun showSettings() {
-        recyclerView.visibility = View.GONE
+        homeContainer.visibility = View.GONE
         settingsScroll.visibility = View.VISIBLE
         setActiveTab(navSettings)
         refreshSettingsLabels()
@@ -247,6 +263,50 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         navExit.isSelected = false
     }
 
+    // --- Recently Visited ---
+
+    private fun setupRecents() {
+        recentsAdapter = SitesAdapter(
+            onSiteClick = { site ->
+                recentsRepo.recordVisit(site)
+                startActivity(
+                    Intent(requireContext(), WebViewActivity::class.java)
+                        .putExtra(WebViewActivity.EXTRA_URL, site.url)
+                )
+            },
+            onAddClick = {},
+            onEditSite = { site ->
+                AddSiteDialogFragment.newInstance(site)
+                    .also { it.setListener(this) }
+                    .show(requireActivity().supportFragmentManager, "edit_site")
+            },
+            onDeleteSite = { site ->
+                repo.deleteSite(site.id)
+                refreshSites()
+                refreshRecents()
+            },
+            onToggleFavorite = { site ->
+                repo.toggleFavorite(site.id)
+                refreshSites()
+                refreshRecents()
+            },
+            showAddTile = false
+        )
+        recentsRow.layoutManager =
+            androidx.recyclerview.widget.LinearLayoutManager(
+                requireContext(),
+                androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL,
+                false
+            )
+        recentsRow.adapter = recentsAdapter
+    }
+
+    private fun refreshRecents() {
+        val recents = recentsRepo.loadRecents(repo.loadSites())
+        recentsSection.visibility = if (recents.isEmpty()) View.GONE else View.VISIBLE
+        recentsAdapter.submitList(recents)
+    }
+
     // --- Home grid ---
 
     private fun setupGrid() {
@@ -257,6 +317,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
 
         sitesAdapter = SitesAdapter(
             onSiteClick = { site ->
+                recentsRepo.recordVisit(site)
                 startActivity(
                     Intent(requireContext(), WebViewActivity::class.java)
                         .putExtra(WebViewActivity.EXTRA_URL, site.url)
@@ -378,7 +439,8 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         private val onAddClick: () -> Unit,
         private val onEditSite: (SiteEntry) -> Unit,
         private val onDeleteSite: (SiteEntry) -> Unit,
-        private val onToggleFavorite: (SiteEntry) -> Unit
+        private val onToggleFavorite: (SiteEntry) -> Unit,
+        private val showAddTile: Boolean = true
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         private var sites: List<SiteEntry> = emptyList()
@@ -388,9 +450,9 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
             notifyDataSetChanged()
         }
 
-        override fun getItemCount() = sites.size + 1
+        override fun getItemCount() = if (showAddTile) sites.size + 1 else sites.size
         override fun getItemViewType(position: Int) =
-            if (position < sites.size) TYPE_SITE else TYPE_ADD
+            if (showAddTile && position >= sites.size) TYPE_ADD else TYPE_SITE
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val cardWidth = SiteCardPresenter.computeCardWidth(parent)
