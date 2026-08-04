@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh — Build a new PinStream release and publish it to GitHub
+# release.sh — Build a new BitStream release and publish it to GitHub
 # Usage: ./release.sh <versionName> <versionCode>
 # Example: ./release.sh "1.1" 2
 
@@ -21,7 +21,7 @@ cat > update.json <<EOF
 {
   "versionCode": ${VERSION_CODE},
   "versionName": "${VERSION_NAME}",
-  "apkUrl": "https://github.com/caesiumstudio/pinstream/releases/latest/download/app-release.apk",
+  "apkUrl": "https://github.com/caesiumstudio/bitstream/releases/latest/download/app-release.apk",
   "changelog": ""
 }
 EOF
@@ -36,9 +36,9 @@ git push origin main
 
 echo "==> Creating GitHub release and uploading APK..."
 gh release create "${TAG}" "${APK_PATH}#app-release.apk" \
-  --title "PinStream ${VERSION_NAME}" \
+  --title "BitStream ${VERSION_NAME}" \
   --notes "" \
   --latest
 
 echo "==> Done. Release ${TAG} is live."
-echo "    APK: https://github.com/caesiumstudio/pinstream/releases/latest/download/app-release.apk"
+echo "    APK: https://github.com/caesiumstudio/bitstream/releases/latest/download/app-release.apk"

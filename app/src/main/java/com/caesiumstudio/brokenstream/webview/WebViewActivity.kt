@@ -1,9 +1,9 @@
-package com.caesiumstudio.pinstream.webview
+package com.caesiumstudio.bitstream.webview
 
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.fragment.app.FragmentActivity
-import com.caesiumstudio.pinstream.R
+import com.caesiumstudio.bitstream.R
 
 class WebViewActivity : FragmentActivity() {
 

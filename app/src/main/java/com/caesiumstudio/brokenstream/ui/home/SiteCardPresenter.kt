@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.ui.home
+package com.caesiumstudio.bitstream.ui.home
 
 import android.graphics.Color
 import android.util.DisplayMetrics
@@ -8,8 +8,8 @@ import android.view.WindowManager
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.leanback.widget.Presenter
-import com.caesiumstudio.pinstream.R
-import com.caesiumstudio.pinstream.data.SiteEntry
+import com.caesiumstudio.bitstream.R
+import com.caesiumstudio.bitstream.data.SiteEntry
 
 class SiteCardPresenter : Presenter() {
 

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PinStream</string>
+    <string name="app_name">BitStream</string>
     <string name="browse_title">Videos by Your Company</string>
     <string name="related_movies">Related Videos</string>
     <string name="grid_view">Grid View</string>
@@ -28,6 +28,6 @@
     <string name="update_failed_title">Download Failed</string>
     <string name="update_failed_msg">Could not download the update. Please try again later.</string>
     <string name="update_permission_title">Permission Required</string>
-    <string name="update_permission_msg">To install updates, allow PinStream to install apps from unknown sources. Open Settings to grant permission, then relaunch the app.</string>
+    <string name="update_permission_msg">To install updates, allow BitStream to install apps from unknown sources. Open Settings to grant permission, then relaunch the app.</string>
     <string name="update_open_settings">Open Settings</string>
 </resources>

@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.data
+package com.caesiumstudio.bitstream.data
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -153,7 +153,7 @@ class SiteRepository(context: Context) {
     }
 
     companion object {
-        private const val PREFS_NAME = "pinstream_sites"
+        private const val PREFS_NAME = "bitstream_sites"
         private const val KEY_SITES = "sites"
     }
 }

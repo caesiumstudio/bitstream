@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream
+package com.caesiumstudio.bitstream
 
 import android.content.Context
 import android.content.Intent

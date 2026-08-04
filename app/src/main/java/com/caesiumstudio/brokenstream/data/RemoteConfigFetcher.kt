@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.data
+package com.caesiumstudio.bitstream.data
 
 import android.net.Uri
 import org.json.JSONArray

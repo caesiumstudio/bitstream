@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.caesiumstudio.pinstream"
+    namespace = "com.caesiumstudio.bitstream"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.caesiumstudio.pinstream"
+        applicationId = "com.caesiumstudio.bitstream"
         minSdk = 21
         targetSdk = 36
         versionCode = 5

@@ -1,6 +1,6 @@
 <resources>
 
-    <style name="Theme.PinStream" parent="@style/Theme.Leanback">
+    <style name="Theme.BitStream" parent="@style/Theme.Leanback">
         <item name="android:windowBackground">@color/fastlane_background</item>
         <item name="android:colorBackground">@color/fastlane_background</item>
         <item name="android:textColorPrimary">@color/text_primary</item>

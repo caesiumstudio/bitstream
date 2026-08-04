@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream
+package com.caesiumstudio.bitstream
 
 import android.app.AlertDialog
 import android.content.Context
@@ -24,12 +24,12 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.caesiumstudio.pinstream.data.AppUpdateChecker
-import com.caesiumstudio.pinstream.data.SiteEntry
-import com.caesiumstudio.pinstream.data.SiteRepository
-import com.caesiumstudio.pinstream.ui.home.AddSiteDialogFragment
-import com.caesiumstudio.pinstream.ui.home.SiteCardPresenter
-import com.caesiumstudio.pinstream.webview.WebViewActivity
+import com.caesiumstudio.bitstream.data.AppUpdateChecker
+import com.caesiumstudio.bitstream.data.SiteEntry
+import com.caesiumstudio.bitstream.data.SiteRepository
+import com.caesiumstudio.bitstream.ui.home.AddSiteDialogFragment
+import com.caesiumstudio.bitstream.ui.home.SiteCardPresenter
+import com.caesiumstudio.bitstream.webview.WebViewActivity
 import java.util.concurrent.Executors
 import java.io.File
 
@@ -533,7 +533,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     }
 
     companion object {
-        const val PREFS_NAME = "pinstream_settings"
+        const val PREFS_NAME = "bitstream_settings"
         const val KEY_CURSOR_SPEED = "cursor_speed"
         const val KEY_SCROLL_SPEED = "scroll_speed"
         private const val TYPE_SITE = 0
@@ -543,7 +543,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         private val SPEED_VALUES = floatArrayOf(0.5f, 1.0f, 1.5f, 2.0f)
 
         const val REMOTE_CONFIG_URL =
-            "https://raw.githubusercontent.com/caesiumstudio/pinstream/main/sites.json"
+            "https://raw.githubusercontent.com/caesiumstudio/bitstream/main/sites.json"
 
         fun cleanDisplayName(raw: String): String {
             // Strip www. prefix, then take only the part before the first dot, capitalize

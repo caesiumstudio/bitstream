@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.ui.home
+package com.caesiumstudio.bitstream.ui.home
 
 import android.app.AlertDialog
 import android.app.Dialog
@@ -6,7 +6,7 @@ import android.os.Bundle
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import androidx.fragment.app.DialogFragment
-import com.caesiumstudio.pinstream.data.SiteEntry
+import com.caesiumstudio.bitstream.data.SiteEntry
 
 class AddSiteDialogFragment : DialogFragment() {
 

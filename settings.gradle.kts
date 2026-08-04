@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PinStream"
+rootProject.name = "BitStream"
 include(":app")

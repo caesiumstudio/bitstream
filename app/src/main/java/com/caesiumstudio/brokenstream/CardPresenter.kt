@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream
+package com.caesiumstudio.bitstream
 
 import android.graphics.drawable.Drawable
 import androidx.leanback.widget.ImageCardView

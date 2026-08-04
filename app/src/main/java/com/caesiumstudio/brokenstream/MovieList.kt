@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream
+package com.caesiumstudio.bitstream
 
 object MovieList {
     val MOVIE_CATEGORY = arrayOf(

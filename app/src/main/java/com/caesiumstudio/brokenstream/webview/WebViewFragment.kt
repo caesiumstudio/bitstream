@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.webview
+package com.caesiumstudio.bitstream.webview
 
 import android.app.AlertDialog
 import android.content.Context
@@ -20,8 +20,8 @@ import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.caesiumstudio.pinstream.MainFragment
-import com.caesiumstudio.pinstream.R
+import com.caesiumstudio.bitstream.MainFragment
+import com.caesiumstudio.bitstream.R
 import kotlinx.coroutines.launch
 
 class WebViewFragment : Fragment() {
@@ -146,8 +146,8 @@ class WebViewFragment : Fragment() {
         }
 
         cachedUserAgent = webView.settings.userAgentString
-        webView.webViewClient = PinStreamWebViewClient()
-        webView.webChromeClient = PinStreamWebChromeClient()
+        webView.webViewClient = BitStreamWebViewClient()
+        webView.webChromeClient = BitStreamWebChromeClient()
 
         // WebView must NOT steal focus — cursor view handles key events via Activity
         webView.isFocusable = false
@@ -282,7 +282,7 @@ class WebViewFragment : Fragment() {
         webView.evaluateJavascript("document.activeElement.blur()", null)
     }
 
-    private inner class PinStreamWebViewClient : WebViewClient() {
+    private inner class BitStreamWebViewClient : WebViewClient() {
 
         override fun shouldInterceptRequest(
             view: WebView,
@@ -322,7 +322,7 @@ class WebViewFragment : Fragment() {
         }
     }
 
-    private inner class PinStreamWebChromeClient : WebChromeClient() {
+    private inner class BitStreamWebChromeClient : WebChromeClient() {
 
         private var customView: View? = null
         private var customViewCallback: CustomViewCallback? = null

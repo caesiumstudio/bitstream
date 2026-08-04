@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.webview
+package com.caesiumstudio.bitstream.webview
 
 import android.content.Context
 import android.webkit.WebResourceResponse

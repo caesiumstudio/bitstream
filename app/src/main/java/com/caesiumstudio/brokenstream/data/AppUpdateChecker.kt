@@ -1,4 +1,4 @@
-package com.caesiumstudio.pinstream.data
+package com.caesiumstudio.bitstream.data
 
 import android.content.Context
 import android.content.Intent
@@ -22,11 +22,11 @@ object AppUpdateChecker {
         val changelog: String
     )
 
-    const val UPDATE_JSON_URL = "https://raw.githubusercontent.com/caesiumstudio/pinstream/main/update.json"
-    private const val PREFS_NAME = "pinstream_update"
+    const val UPDATE_JSON_URL = "https://raw.githubusercontent.com/caesiumstudio/bitstream/main/update.json"
+    private const val PREFS_NAME = "bitstream_update"
     private const val KEY_LAST_CHECKED = "last_checked_ms"
     private const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
-    private const val AUTHORITY = "com.caesiumstudio.pinstream.fileprovider"
+    private const val AUTHORITY = "com.caesiumstudio.bitstream.fileprovider"
 
     fun shouldCheck(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -79,7 +79,7 @@ object AppUpdateChecker {
     }
 
     fun downloadApk(context: Context, apkUrl: String, onProgress: (Int) -> Unit): File? {
-        val apkFile = File(context.filesDir, "update/pinstream-update.apk")
+        val apkFile = File(context.filesDir, "update/bitstream-update.apk")
         apkFile.parentFile?.mkdirs()
         apkFile.delete()
 
