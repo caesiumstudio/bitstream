@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.caesiumstudio.bitstream.data.Analytics
 import com.caesiumstudio.bitstream.data.AppUpdateChecker
 import com.caesiumstudio.bitstream.data.RecentlyVisitedRepository
 import com.caesiumstudio.bitstream.data.SiteEntry
@@ -83,6 +84,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         showHome()
         syncRemoteSites()
         checkForUpdates()
+        Analytics.track("app_open")
     }
 
     override fun onResume() {
@@ -128,6 +130,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     private fun checkForUpdatesManually() {
         tvCheckUpdates.isEnabled = false
         tvCheckUpdates.text = "Checking…"
+        Analytics.track("update_check_manual")
         Executors.newSingleThreadExecutor().execute {
             val info = AppUpdateChecker.fetchUpdateInfo(AppUpdateChecker.UPDATE_JSON_URL)
             view?.post {
@@ -135,12 +138,14 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                 tvCheckUpdates.isEnabled = true
                 tvCheckUpdates.text = "Check for Updates"
                 if (info == null) {
+                    Analytics.track("update_check_error")
                     AlertDialog.Builder(requireContext())
                         .setTitle("Check for Updates")
                         .setMessage("Could not reach the update server. Please try again later.")
                         .setPositiveButton(android.R.string.ok, null)
                         .show()
                 } else if (!AppUpdateChecker.isUpdateAvailable(requireContext(), info.versionCode)) {
+                    Analytics.track("update_up_to_date")
                     AlertDialog.Builder(requireContext())
                         .setTitle("Up to Date")
                         .setMessage("You're running the latest version.")
@@ -154,14 +159,18 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     }
 
     private fun showUpdateDialog(info: AppUpdateChecker.UpdateInfo) {
+        Analytics.track("update_available", info.versionName)
         AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.update_title, info.versionName))
             .setMessage(info.changelog.ifEmpty { getString(R.string.update_default_changelog) })
             .setPositiveButton(R.string.update_download_install) { dialog, _ ->
                 dialog.dismiss()
+                Analytics.track("update_download_started", info.versionName)
                 startDownload(info)
             }
-            .setNegativeButton(R.string.update_not_now, null)
+            .setNegativeButton(R.string.update_not_now) { _, _ ->
+                Analytics.track("update_dismissed", info.versionName)
+            }
             .show()
     }
 
@@ -208,6 +217,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                 if (apkFile != null) {
                     handleInstall(apkFile)
                 } else {
+                    Analytics.track("update_download_failed")
                     AlertDialog.Builder(requireContext())
                         .setTitle(R.string.update_failed_title)
                         .setMessage(R.string.update_failed_msg)
@@ -221,8 +231,10 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     private fun handleInstall(apkFile: File) {
         val ctx = requireContext()
         if (AppUpdateChecker.canInstallUnknownSources(ctx)) {
+            Analytics.track("update_install_started")
             AppUpdateChecker.installApk(ctx, apkFile)
         } else {
+            Analytics.track("update_permission_denied")
             AlertDialog.Builder(ctx)
                 .setTitle(R.string.update_permission_title)
                 .setMessage(R.string.update_permission_msg)
@@ -239,7 +251,10 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
     private fun setupNav() {
         navHome.setOnClickListener { showHome() }
         navSettings.setOnClickListener { showSettings() }
-        navExit.setOnClickListener { requireActivity().finishAffinity() }
+        navExit.setOnClickListener {
+            Analytics.track("app_exit")
+            requireActivity().finishAffinity()
+        }
     }
 
     private fun showHome() {
@@ -247,6 +262,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         settingsScroll.visibility = View.GONE
         setActiveTab(navHome)
         recyclerView.requestFocus()
+        Analytics.track("home_tab_view")
     }
 
     private fun showSettings() {
@@ -255,6 +271,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         setActiveTab(navSettings)
         refreshSettingsLabels()
         tvCursorSpeed.requestFocus()
+        Analytics.track("settings_tab_view")
     }
 
     private fun setActiveTab(active: TextView) {
@@ -269,6 +286,7 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         recentsAdapter = SitesAdapter(
             onSiteClick = { site ->
                 recentsRepo.recordVisit(site)
+                Analytics.track("site_open", site.displayName, "recents")
                 startActivity(
                     Intent(requireContext(), WebViewActivity::class.java)
                         .putExtra(WebViewActivity.EXTRA_URL, site.url)
@@ -276,16 +294,20 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
             },
             onAddClick = {},
             onEditSite = { site ->
+                Analytics.track("site_edit_open", site.displayName)
                 AddSiteDialogFragment.newInstance(site)
                     .also { it.setListener(this) }
                     .show(requireActivity().supportFragmentManager, "edit_site")
             },
             onDeleteSite = { site ->
+                Analytics.track("site_deleted", site.displayName)
                 repo.deleteSite(site.id)
                 refreshSites()
                 refreshRecents()
             },
             onToggleFavorite = { site ->
+                if (site.isFavorite) Analytics.track("site_unfavorited", site.displayName)
+                else Analytics.track("site_favorited", site.displayName)
                 repo.toggleFavorite(site.id)
                 refreshSites()
                 refreshRecents()
@@ -318,26 +340,32 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         sitesAdapter = SitesAdapter(
             onSiteClick = { site ->
                 recentsRepo.recordVisit(site)
+                Analytics.track("site_open", site.displayName, "grid")
                 startActivity(
                     Intent(requireContext(), WebViewActivity::class.java)
                         .putExtra(WebViewActivity.EXTRA_URL, site.url)
                 )
             },
             onAddClick = {
+                Analytics.track("add_site_open")
                 AddSiteDialogFragment.newInstance()
                     .also { it.setListener(this) }
                     .show(requireActivity().supportFragmentManager, "add_site")
             },
             onEditSite = { site ->
+                Analytics.track("site_edit_open", site.displayName)
                 AddSiteDialogFragment.newInstance(site)
                     .also { it.setListener(this) }
                     .show(requireActivity().supportFragmentManager, "edit_site")
             },
             onDeleteSite = { site ->
+                Analytics.track("site_deleted", site.displayName)
                 repo.deleteSite(site.id)
                 refreshSites()
             },
             onToggleFavorite = { site ->
+                if (site.isFavorite) Analytics.track("site_unfavorited", site.displayName)
+                else Analytics.track("site_favorited", site.displayName)
                 repo.toggleFavorite(site.id)
                 refreshSites()
             }
@@ -364,8 +392,10 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
                 url
             }
             repo.updateSite(existing.copy(url = normalized, displayName = host))
+            Analytics.track("site_edited", host)
         } else {
             repo.addSite(url)
+            Analytics.track("site_added", url)
         }
         refreshSites()
     }
@@ -408,6 +438,8 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
             .setSingleChoiceItems(SPEED_LABELS, currentIdx) { dialog, idx ->
                 prefs.edit().putFloat(prefKey, SPEED_VALUES[idx]).apply()
                 label.text = "$title: ${SPEED_LABELS[idx]}"
+                val eventName = if (prefKey == KEY_CURSOR_SPEED) "cursor_speed_changed" else "scroll_speed_changed"
+                Analytics.track(eventName, SPEED_LABELS[idx])
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)

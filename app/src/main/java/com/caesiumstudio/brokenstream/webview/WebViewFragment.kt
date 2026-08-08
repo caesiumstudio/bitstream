@@ -22,6 +22,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.caesiumstudio.bitstream.MainFragment
 import com.caesiumstudio.bitstream.R
+import com.caesiumstudio.bitstream.data.Analytics
 import kotlinx.coroutines.launch
 
 class WebViewFragment : Fragment() {
@@ -263,6 +264,8 @@ class WebViewFragment : Fragment() {
                         webView,
                         android.view.inputmethod.InputMethodManager.SHOW_FORCED
                     )
+                    val domain = android.net.Uri.parse(siteUrl).host?.removePrefix("www.") ?: siteUrl
+                    Analytics.track("keyboard_shown", domain)
                 }
             }
         }, 500)
@@ -307,6 +310,8 @@ class WebViewFragment : Fragment() {
             webView.isFocusableInTouchMode = false
             // Inject scriptlets early — before page scripts run (best effort)
             injectScriptlets()
+            val domain = android.net.Uri.parse(url).host?.removePrefix("www.") ?: url
+            Analytics.track("site_view", domain)
         }
 
         override fun onPageFinished(view: WebView, url: String) {
@@ -345,7 +350,8 @@ class WebViewFragment : Fragment() {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             )
             webView.visibility = View.GONE
-            cursor.visibility = View.GONE
+            val domain = android.net.Uri.parse(siteUrl).host?.removePrefix("www.") ?: siteUrl
+            Analytics.track("fullscreen_enter", domain)
         }
 
         override fun onHideCustomView() {
@@ -359,6 +365,8 @@ class WebViewFragment : Fragment() {
             requireActivity().window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             webView.visibility = View.VISIBLE
             cursor.visibility = View.VISIBLE
+            val domain = android.net.Uri.parse(siteUrl).host?.removePrefix("www.") ?: siteUrl
+            Analytics.track("fullscreen_exit", domain)
         }
 
         override fun onCreateWindow(
