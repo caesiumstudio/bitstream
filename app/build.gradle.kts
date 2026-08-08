@@ -14,8 +14,8 @@ android {
         applicationId = "com.caesiumstudio.bitstream"
         minSdk = 21
         targetSdk = 36
-        versionCode = 9
-        versionName = "9"
+        versionCode = 10
+        versionName = "10"
     }
 
     buildTypes {
