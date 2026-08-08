@@ -18,6 +18,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.caesiumstudio.bitstream.MainFragment
@@ -65,6 +66,15 @@ class WebViewFragment : Fragment() {
     private var pressStartTime: Long = 0L
     private val MAX_ACCEL = 4f   // top speed is 4× base at full acceleration
 
+    // Mode toggle: pointer (default) vs DOM element selection
+    private var isDomMode = false
+    private var centerKeyDownTime = 0L
+    private val LONG_PRESS_MS = 600L
+
+    // Fullscreen video view (non-null while in fullscreen)
+    private var fullscreenView: View? = null
+    private var fullscreenViewCallback: WebChromeClient.CustomViewCallback? = null
+
     private val handler = Handler(Looper.getMainLooper())
     private var activeDirection: Int = 0
 
@@ -108,8 +118,8 @@ class WebViewFragment : Fragment() {
 
         // Cache prefs once here instead of reading on every D-pad event
         val prefs = requireContext().getSharedPreferences(MainFragment.PREFS_NAME, Context.MODE_PRIVATE)
-        cursorSpeedPref = prefs.getFloat(MainFragment.KEY_CURSOR_SPEED, 1.0f)
-        scrollSpeedPref = prefs.getFloat(MainFragment.KEY_SCROLL_SPEED, 1.0f)
+        cursorSpeedPref = prefs.getFloat(MainFragment.KEY_CURSOR_SPEED, 1.5f)
+        scrollSpeedPref = prefs.getFloat(MainFragment.KEY_SCROLL_SPEED, 1.5f)
 
         lifecycleScope.launch {
             AdBlocker.initialize(requireContext())
@@ -162,6 +172,10 @@ class WebViewFragment : Fragment() {
             KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_DPAD_LEFT,
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (isDomMode) {
+                    if (event.repeatCount == 0) moveFocusDom(keyCode)
+                    return true
+                }
                 if (activeDirection != keyCode) {
                     activeDirection = keyCode
                     pressStartTime = System.currentTimeMillis()
@@ -174,7 +188,7 @@ class WebViewFragment : Fragment() {
 
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER -> {
-                simulateClick()
+                if (event.repeatCount == 0) centerKeyDownTime = System.currentTimeMillis()
                 return true
             }
         }
@@ -182,6 +196,18 @@ class WebViewFragment : Fragment() {
     }
 
     fun onKeyUp(keyCode: Int): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER -> {
+                val held = System.currentTimeMillis() - centerKeyDownTime
+                if (held >= LONG_PRESS_MS) {
+                    toggleDomMode()
+                } else {
+                    if (isDomMode) clickFocusedElement() else simulateClick()
+                }
+                return true
+            }
+        }
         if (keyCode == activeDirection) {
             activeDirection = 0
             handler.removeCallbacks(repeatRunnable)
@@ -243,10 +269,13 @@ class WebViewFragment : Fragment() {
             MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
         val up =
             MotionEvent.obtain(downTime, downTime + 50, MotionEvent.ACTION_UP, cursorX, cursorY, 0)
-        webView.dispatchTouchEvent(down)
-        webView.dispatchTouchEvent(up)
+        val target = fullscreenView ?: webView
+        target.dispatchTouchEvent(down)
+        target.dispatchTouchEvent(up)
         down.recycle()
         up.recycle()
+
+        if (fullscreenView != null) return  // no keyboard check needed in fullscreen
 
         // After touch lands, check if an input/textarea received focus
         handler.postDelayed({
@@ -278,6 +307,76 @@ class WebViewFragment : Fragment() {
         webView.evaluateJavascript("window.scrollBy(0, $amount)", null)
     }
 
+    private fun toggleDomMode() {
+        isDomMode = !isDomMode
+        if (isDomMode) {
+            cursor.visibility = View.GONE
+            Toast.makeText(requireContext(), "Selection mode", Toast.LENGTH_SHORT).show()
+            // Focus the first visible focusable element immediately
+            moveFocusDom(0)
+        } else {
+            val parent = view ?: return
+            cursorX = parent.width / 2f
+            cursorY = parent.height / 2f
+            updateCursorPosition()
+            cursor.visibility = View.VISIBLE
+            Toast.makeText(requireContext(), "Pointer mode", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun moveFocusDom(keyCode: Int) {
+        val dir = when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> "up"
+            KeyEvent.KEYCODE_DPAD_DOWN -> "down"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "left"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
+            else -> ""
+        }
+        val js = """
+            (function() {
+                var focusable = Array.from(document.querySelectorAll(
+                    'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="button"], [role="link"], [role="gridcell"], [role="menuitem"], [role="option"]'
+                )).filter(function(el) {
+                    var r = el.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                });
+                if (!focusable.length) return;
+                var cur = document.activeElement;
+                var cr = (cur && cur !== document.body) ? cur.getBoundingClientRect() : null;
+                if (!cr || '$dir' === '') {
+                    focusable[0].focus();
+                    focusable[0].scrollIntoView({block:'nearest', behavior:'smooth'});
+                    return;
+                }
+                var best = null, bestScore = Infinity;
+                var ocx = cr.left + cr.width / 2, ocy = cr.top + cr.height / 2;
+                focusable.forEach(function(el) {
+                    if (el === cur) return;
+                    var r = el.getBoundingClientRect();
+                    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                    var dx = cx - ocx, dy = cy - ocy;
+                    var inDir = ('$dir' === 'down' && dy > 0) || ('$dir' === 'up' && dy < 0) ||
+                                ('$dir' === 'right' && dx > 0) || ('$dir' === 'left' && dx < 0);
+                    if (!inDir) return;
+                    var dist = dx * dx + dy * dy;
+                    if (dist < bestScore) { bestScore = dist; best = el; }
+                });
+                if (best) {
+                    best.focus();
+                    best.scrollIntoView({block:'nearest', behavior:'smooth'});
+                }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    private fun clickFocusedElement() {
+        webView.evaluateJavascript(
+            "(function(){ var el=document.activeElement; if(el && el!==document.body) el.click(); })();",
+            null
+        )
+    }
+
     fun canGoBack(): Boolean = webView.canGoBack()
     fun goBack() = webView.goBack()
 
@@ -301,7 +400,7 @@ class WebViewFragment : Fragment() {
         override fun shouldOverrideUrlLoading(
             view: WebView,
             request: WebResourceRequest
-        ): Boolean = false
+        ): Boolean = AdBlocker.shouldBlock(request.url.toString())
 
         override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
             progressBar.visibility = View.VISIBLE
@@ -329,22 +428,21 @@ class WebViewFragment : Fragment() {
 
     private inner class BitStreamWebChromeClient : WebChromeClient() {
 
-        private var customView: View? = null
-        private var customViewCallback: CustomViewCallback? = null
-
         override fun onShowCustomView(view: View, callback: CustomViewCallback) {
-            customView = view
-            customViewCallback = callback
-            requireActivity().window.decorView.let { decor ->
-                (decor as ViewGroup).addView(
-                    view, ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
+            fullscreenView = view
+            fullscreenViewCallback = callback
+            val decor = requireActivity().window.decorView as ViewGroup
+            decor.addView(
+                view, ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
                 )
-            }
+            )
+            // Move cursor into the fullscreen container so it stays visible and interactive
+            (cursor.parent as? ViewGroup)?.removeView(cursor)
+            decor.addView(cursor)
             @Suppress("DEPRECATION")
-            requireActivity().window.decorView.systemUiVisibility = (
+            decor.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_FULLSCREEN or
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -355,15 +453,17 @@ class WebViewFragment : Fragment() {
         }
 
         override fun onHideCustomView() {
-            customView?.let { view ->
-                (requireActivity().window.decorView as ViewGroup).removeView(view)
-            }
-            customView = null
-            customViewCallback?.onCustomViewHidden()
-            customViewCallback = null
+            val decor = requireActivity().window.decorView as ViewGroup
+            fullscreenView?.let { decor.removeView(it) }
+            fullscreenView = null
+            fullscreenViewCallback?.onCustomViewHidden()
+            fullscreenViewCallback = null
             @Suppress("DEPRECATION")
-            requireActivity().window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+            decor.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             webView.visibility = View.VISIBLE
+            // Move cursor back into the fragment's layout
+            decor.removeView(cursor)
+            (view as? ViewGroup)?.addView(cursor)
             cursor.visibility = View.VISIBLE
             val domain = android.net.Uri.parse(siteUrl).host?.removePrefix("www.") ?: siteUrl
             Analytics.track("fullscreen_exit", domain)
@@ -526,6 +626,10 @@ class WebViewFragment : Fragment() {
         activeDirection = 0
         atTopEdge = false
         atBottomEdge = false
+        if (isDomMode) {
+            isDomMode = false
+            cursor.visibility = View.VISIBLE
+        }
     }
 
     override fun onResume() {

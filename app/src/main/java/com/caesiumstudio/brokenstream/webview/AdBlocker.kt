@@ -39,6 +39,7 @@ object AdBlocker {
         "vungle.com", "inmobi.com", "unity3d.com/ads",
         "?utm_", "&utm_", "?fbclid=", "&fbclid=",
         "?gclid=", "&gclid=", "?dclid=", "&dclid=",
+        "wherewindsmeetgame.com",
     )
 
     suspend fun initialize(context: Context) = withContext(Dispatchers.IO) {

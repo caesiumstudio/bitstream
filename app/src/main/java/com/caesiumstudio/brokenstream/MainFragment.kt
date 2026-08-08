@@ -424,13 +424,13 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
 
     private fun refreshSettingsLabels() {
         val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        tvCursorSpeed.text = "Pointer Speed: ${labelFor(prefs.getFloat(KEY_CURSOR_SPEED, 1.0f))}"
-        tvScrollSpeed.text = "Scroll Speed: ${labelFor(prefs.getFloat(KEY_SCROLL_SPEED, 1.0f))}"
+        tvCursorSpeed.text = "Pointer Speed: ${labelFor(prefs.getFloat(KEY_CURSOR_SPEED, 1.5f))}"
+        tvScrollSpeed.text = "Scroll Speed: ${labelFor(prefs.getFloat(KEY_SCROLL_SPEED, 1.5f))}"
     }
 
     private fun showSpeedPicker(title: String, prefKey: String, label: TextView) {
         val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val current = prefs.getFloat(prefKey, 1.0f)
+        val current = prefs.getFloat(prefKey, 1.5f)
         val currentIdx = SPEED_VALUES.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 1
 
         AlertDialog.Builder(requireContext())
@@ -633,8 +633,8 @@ class MainFragment : Fragment(), AddSiteDialogFragment.Listener {
         private const val TYPE_SITE = 0
         private const val TYPE_ADD = 1
         private val SPEED_LABELS =
-            arrayOf("Slow (0.5×)", "Normal (1×)", "Fast (1.5×)", "Very Fast (2×)")
-        private val SPEED_VALUES = floatArrayOf(0.5f, 1.0f, 1.5f, 2.0f)
+            arrayOf("Slow (0.75×)", "Normal (1.5×)", "Fast (2.25×)", "Very Fast (3×)")
+        private val SPEED_VALUES = floatArrayOf(0.75f, 1.5f, 2.25f, 3.0f)
 
         const val REMOTE_CONFIG_URL =
             "https://raw.githubusercontent.com/caesiumstudio/bitstream/main/sites.json"
