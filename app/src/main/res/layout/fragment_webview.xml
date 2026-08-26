@@ -19,8 +19,8 @@
     <!-- Virtual mouse cursor -->
     <View
         android:id="@+id/cursor"
-        android:layout_width="20dp"
-        android:layout_height="20dp"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
         android:background="@drawable/cursor_pointer" />
 
 </FrameLayout>

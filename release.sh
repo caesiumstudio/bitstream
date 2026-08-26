@@ -1,13 +1,11 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 # release.sh — Build a new BitStream release and publish it to GitHub
-# Usage: ./release.sh <versionName> <versionCode>
-# Example: ./release.sh "1.1" 2
 
 set -euo pipefail
 
-VERSION_NAME="${1:?Usage: ./release.sh <versionName> <versionCode>}"
-VERSION_CODE="${2:?Usage: ./release.sh <versionName> <versionCode>}"
-APK_PATH="app/release/app-release.apk"
+print -n "Version name: "; read VERSION_NAME
+print -n "Version code: "; read VERSION_CODE
+APK_PATH="app/build/outputs/apk/release/app-release.apk"
 TAG="v${VERSION_NAME}"
 
 echo "==> Updating version in build.gradle.kts..."
@@ -27,7 +25,7 @@ cat > update.json <<EOF
 EOF
 
 echo "==> Building release APK..."
-./gradlew assembleRelease --quiet
+./gradlew clean assembleRelease --quiet
 
 echo "==> Committing version bump..."
 git add app/build.gradle.kts update.json
