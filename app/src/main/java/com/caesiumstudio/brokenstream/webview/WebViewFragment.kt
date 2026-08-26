@@ -275,7 +275,13 @@ class WebViewFragment : Fragment() {
         down.recycle()
         up.recycle()
 
-        if (fullscreenView != null) return  // no keyboard check needed in fullscreen
+        if (fullscreenView != null) {
+            // Return focus to the cursor so key events keep flowing after the click
+            cursor.isFocusable = true
+            cursor.isFocusableInTouchMode = true
+            cursor.requestFocus()
+            return
+        }
 
         // After touch lands, check if an input/textarea received focus
         handler.postDelayed({
@@ -308,6 +314,7 @@ class WebViewFragment : Fragment() {
     }
 
     private fun toggleDomMode() {
+        if (fullscreenView != null) return  // no mode switch during fullscreen video
         isDomMode = !isDomMode
         if (isDomMode) {
             cursor.visibility = View.GONE
@@ -440,7 +447,10 @@ class WebViewFragment : Fragment() {
             )
             // Move cursor into the fullscreen container so it stays visible and interactive
             (cursor.parent as? ViewGroup)?.removeView(cursor)
+            cursor.isFocusable = true
+            cursor.isFocusableInTouchMode = true
             decor.addView(cursor)
+            cursor.requestFocus()
             @Suppress("DEPRECATION")
             decor.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -463,6 +473,8 @@ class WebViewFragment : Fragment() {
             webView.visibility = View.VISIBLE
             // Move cursor back into the fragment's layout
             decor.removeView(cursor)
+            cursor.isFocusable = false
+            cursor.isFocusableInTouchMode = false
             (view as? ViewGroup)?.addView(cursor)
             cursor.visibility = View.VISIBLE
             val domain = android.net.Uri.parse(siteUrl).host?.removePrefix("www.") ?: siteUrl
