@@ -14,12 +14,22 @@ android {
         applicationId = "com.caesiumstudio.bitstream"
         minSdk = 21
         targetSdk = 36
-        versionCode = 11
-        versionName = "11"
+        versionCode = 12
+        versionName = "12"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("/Users/D059976/Store/Projects/VSCode/cstools/ApkSigningKeys/Linux/AndroidKeyStore/BrokenStream/keystore.jks")
+            storePassword = "ravi#1987"
+            keyAlias = "rkskey"
+            keyPassword = "ravi#1987"
+        }
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
